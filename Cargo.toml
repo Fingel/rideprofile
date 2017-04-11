@@ -1,0 +1,8 @@
+[package]
+name = "ride_profile"
+version = "0.1.0"
+authors = ["Austin Riba <austin@m51.io>"]
+
+[dependencies]
+xmltree = "0.4.0"
+time = "0.1"
