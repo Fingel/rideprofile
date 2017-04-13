@@ -1,13 +1,14 @@
 extern crate xmltree;
 extern crate time;
+extern crate zip;
 
 use std::error::Error;
 use std::fs::File;
-use std::io::prelude::*;
 use std::vec::Vec;
 use std::process;
 use std::env;
 use xmltree::Element;
+use zip::read::ZipArchive;
 use time::{Tm, Duration, strptime};
 
 fn main() {
@@ -17,27 +18,38 @@ fn main() {
         process::exit(1);
     }
     let ref path = args[1];
-    let mut file = match File::open(path) {
+    let file = match File::open(path) {
         Err(why) => panic!("couldn't open file {}: {}", path, why.description()),
         Ok(file) => file,
     };
-    let mut contents = String::new();
-    match file.read_to_string(&mut contents) {
-        Err(why) => panic!("couldn't read file {}: {}", path, why.description()),
-        Ok(contents) => contents,
-    };
-    let gpx = Element::parse(contents.as_bytes()).unwrap();
-    let title = get_title(&gpx);
-    println!("{}", title);
-    let points = get_points(&gpx);
-    println!("Number of samples: {}", points.len());
-    println!("Start time: {}", points[0].time.asctime());
-    let duration = get_duration(&points);
-    println!("Total time: {} seconds", duration.num_seconds());
-    let elevation = get_elevation(&points);
-    println!("Total elevation: {} meters", elevation);
-    let total_d = get_distance(&points);
-    println!("Total distance: {} meters", total_d);
+    let mut zip = ZipArchive::new(file).unwrap();
+    let mut total_rides = 0;
+    let mut total_duration = 0;
+    let mut total_elevation = 0.0;
+    let mut total_distance = 0.0;
+    for i in 0..zip.len(){
+        let zipfile = zip.by_index(i).unwrap();
+        let gpx = Element::parse(zipfile).unwrap();
+        let title = get_title(&gpx);
+        println!("{}", title);
+        let points = get_points(&gpx);
+        println!("Number of samples: {}", points.len());
+        println!("Start time: {}", points[0].time.asctime());
+        let duration = get_duration(&points).num_seconds();
+        total_duration += duration;
+        println!("Total time: {} seconds", duration);
+        let elevation = get_elevation(&points);
+        total_elevation += elevation;
+        println!("Total elevation: {} meters", elevation);
+        let distance = get_distance(&points);
+        total_distance += distance;
+        println!("Total distance: {} meters", distance);
+        total_rides+=1;
+    }
+    println!(
+        "{{\"rides\": {}, \"duration\": {}, \"elevation\": {}, \"distance\": {}}}",
+        total_rides, total_duration, total_elevation, total_distance
+    )
 }
 
 struct Point {
